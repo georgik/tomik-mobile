@@ -1,0 +1,3 @@
+# Toit Package File.
+name: tomik_mobile
+entrypoint: app.toit
