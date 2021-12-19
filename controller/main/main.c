@@ -22,6 +22,9 @@
 #include "esp_camera.h"
 #include "board.h"
 #include "driver/gpio.h"
+#include "driver/adc.h"
+#include "driver/rmt.h"
+#include "led_strip.h"
 
 int previous_state = 0;
 int lock = 0;
@@ -30,9 +33,11 @@ static const char *TAG = "main";
 #define GPIO_OUTPUT_IO_0    18
 #define GPIO_OUTPUT_IO_1    19
 #define GPIO_OUTPUT_PIN_SEL  ((1<<GPIO_OUTPUT_IO_0) | (1<<GPIO_OUTPUT_IO_1))
-#define GPIO_INPUT_IO_0     14
-#define GPIO_INPUT_IO_1     5
-#define GPIO_INPUT_PIN_SEL  ((1<<GPIO_INPUT_IO_0) | (1<<GPIO_INPUT_IO_1))
+#define GPIO_INPUT_IO_0     2
+#define GPIO_INPUT_IO_1     14
+#define GPIO_INPUT_IO_2     36
+#define GPIO_INPUT_IO_3     37
+#define GPIO_INPUT_PIN_SEL  ((1<<GPIO_INPUT_IO_0) | (1<<GPIO_INPUT_IO_1) | (1<<GPIO_INPUT_IO_2) | (1<<GPIO_INPUT_IO_3))
 #define ESP_INTR_FLAG_DEFAULT 0
 
 #define IMAGE_MAX_SIZE (100 * 1024)/**< The maximum size of a single picture in the boot animation */
@@ -204,8 +209,24 @@ void gpio_task_example(void* arg)
     uint32_t io_num;
     for(;;) {
         if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
+
+            // up - down
+            // if (io_num == GPIO_INPUT_IO_3) {
+                int level2 = adc1_get_raw(ADC1_CHANNEL_1);
+                printf("up-down%d\n", level2);
+            //     continue;
+            // } else if (io_num == GPIO_INPUT_IO_2)
+            // {
+                int level3 = adc1_get_raw(ADC1_CHANNEL_0);
+                printf("left-right%d\n", level3);
+
+            //     continue;
+            // }
+
             int level = gpio_get_level(io_num);
+           
             printf("GPIO[%d] intr, val: %d\n", io_num, level);
+            
             if (previous_state == level) {
                 continue;
             }
@@ -223,58 +244,167 @@ void gpio_task_example(void* arg)
 }
 
 
-void esp_color_display(void)
+void esp_color_display(int color)
 {
     ESP_LOGI(TAG, "LCD color test....");
     uint16_t *data_buf = (uint16_t *)heap_caps_calloc(IMAGE_WIDTH * IMAGE_HIGHT, sizeof(uint16_t), MALLOC_CAP_SPIRAM);
 
+
+    for (int r = 0,  j = 0; j < IMAGE_HIGHT; j++) {
+        // if (j % 8 == 0) {
+        //     color = color565(r++, 0, 0);
+        // }
+
+        for (int i = 0; i < IMAGE_WIDTH; i++) {
+            data_buf[i + IMAGE_WIDTH * j] = color;
+        }
+    }
+
+    lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
+    lcd_write_data((uint8_t *)data_buf, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
+
+}
+
+
+
+
+#define DEFAULT_VREF    1100                            /*!< Use adc2_vref_to_gpio() to obtain a better estimate */
+#define NO_OF_SAMPLES   64
+#define SAMPLE_TIME     200                             /*!< Sampling time(ms) */
+static const adc_channel_t channel = ADC_CHANNEL_5;     /*!< PIO7 if ADC1, GPIO17 if ADC2 */
+static const adc_bits_width_t width = ADC_WIDTH_BIT_13;
+
+static const adc_atten_t atten = ADC_ATTEN_DB_11;
+static const adc_unit_t unit = ADC_UNIT_1;
+static xQueueHandle adc_queue = NULL;
+led_strip_t *strip;
+#define DEVIATION 0.1
+#define LED_MAX_VALUE 5
+
+double adc_voltage_conversion(uint32_t adc_reading)
+{
+    double voltage = 0;
+
+    voltage = (2.60 * adc_reading) / 8191;
+
+    return voltage;
+}
+void button_task(void *arg)
+{
+    /*!<Continuously sample ADC1*/
     while (1) {
-        uint16_t color = color565(0, 0, 0);
+        uint32_t adc_reading = 0;
+        double voltage = 0;
 
-        for (int r = 0,  j = 0; j < IMAGE_HIGHT; j++) {
-            if (j % 8 == 0) {
-                color = color565(r++, 0, 0);
-            }
-
-            for (int i = 0; i < IMAGE_WIDTH; i++) {
-                data_buf[i + IMAGE_WIDTH * j] = color;
-            }
-        }
-
-        lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
-        lcd_write_data((uint8_t *)data_buf, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
-        vTaskDelay(2000 / portTICK_RATE_MS);
-
-        for (int g = 0,  j = 0; j < IMAGE_HIGHT; j++) {
-            if (j % 8 == 0) {
-                color = color565(0, g++, 0);
-            }
-
-            for (int i = 0; i < IMAGE_WIDTH; i++) {
-                data_buf[i + IMAGE_WIDTH * j] = color;
+        /*!< Multisampling */
+        for (int i = 0; i < NO_OF_SAMPLES; i++) {
+            if (unit == ADC_UNIT_1) {
+                adc_reading += adc1_get_raw((adc1_channel_t)channel);
+            } else {
+                int raw;
+                adc2_get_raw((adc2_channel_t)channel, width, &raw);
+                adc_reading += raw;
             }
         }
 
-        lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
-        lcd_write_data((uint8_t *)data_buf, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
-        vTaskDelay(2000 / portTICK_RATE_MS);
+        adc_reading /= NO_OF_SAMPLES;
 
-        for (int b = 0,  j = 0; j < IMAGE_HIGHT; j++) {
-            if (j % 8 == 0) {
-                color = color565(0, 0, b++);
-            }
+        voltage = adc_voltage_conversion(adc_reading);
+        ESP_LOGD(TAG, "ADC%d CH%d Raw: %d   ; Voltage: %0.2lfV", unit, channel, adc_reading, voltage);
 
-            for (int i = 0; i < IMAGE_WIDTH; i++) {
-                data_buf[i + IMAGE_WIDTH * j] = color;
-            }
+        xQueueSend(adc_queue, (double *)&voltage, 0);
+        vTaskDelay(pdMS_TO_TICKS(SAMPLE_TIME));
+    }
+
+    vTaskDelete(NULL);
+}
+
+void led_task(void *arg)
+{
+    double voltage = 0;
+
+    while (1) {
+        xQueueReceive(adc_queue, &voltage, portMAX_DELAY);
+
+        if (voltage > 2.6) {
+            continue;
+        } else if (voltage > 2.41 - DEVIATION  && voltage <= 2.41 + DEVIATION) {
+            ESP_LOGI(TAG, "rec(K1) -> red");
+            ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, 0, 0));
+            ESP_ERROR_CHECK(strip->refresh(strip, 0));
+            esp_color_display(color565(255,0,0));
+        } else if (voltage > 1.98 - DEVIATION && voltage <= 1.98 + DEVIATION) {
+            ESP_LOGI(TAG, "mode(K2) -> green");
+            ESP_ERROR_CHECK(strip->set_pixel(strip, 0, 0, LED_MAX_VALUE, 0));
+            ESP_ERROR_CHECK(strip->refresh(strip, 0));
+            esp_color_display(color565(0,255,0));
+        } else if (voltage > 1.65 - DEVIATION && voltage <= 1.65 + DEVIATION) {
+            ESP_LOGI(TAG, "play(K3) -> blue");
+            ESP_ERROR_CHECK(strip->set_pixel(strip, 0, 0, 0, LED_MAX_VALUE));
+            ESP_ERROR_CHECK(strip->refresh(strip, 0));
+            esp_color_display(color565(0,0,255));
+        } else if (voltage > 1.11 - DEVIATION && voltage <= 1.11 + DEVIATION) {
+            ESP_LOGI(TAG, "set(K4) -> yellow");
+            ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, LED_MAX_VALUE, 0));
+            ESP_ERROR_CHECK(strip->refresh(strip, 0));
+            esp_color_display(color565(255,255,0));
+        } else if (voltage > 0.82 - DEVIATION && voltage <= 0.82 + DEVIATION) {
+            ESP_LOGI(TAG, "vol(K5) -> purple");
+            ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, 0, LED_MAX_VALUE));
+            ESP_ERROR_CHECK(strip->refresh(strip, 0));
+            esp_color_display(color565(255,0,255));
+        } else if (voltage > 0.38 - DEVIATION && voltage <= 0.38 + DEVIATION) {
+            ESP_LOGI(TAG, "vol+(K6) -> write");
+            ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, LED_MAX_VALUE, LED_MAX_VALUE));
+            ESP_ERROR_CHECK(strip->refresh(strip, 0));
+            esp_color_display(color565(255,255,255));
         }
-
-        lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
-        lcd_write_data((uint8_t *)data_buf, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
-        vTaskDelay(2000 / portTICK_RATE_MS);
 
     }
+
+    vTaskDelete(NULL);
+
 }
+
+void adc_init(void)
+{
+    if (unit == ADC_UNIT_1) {
+        adc1_config_width(width);
+        adc1_config_channel_atten(channel, atten);
+    } else {
+        adc2_config_channel_atten((adc2_channel_t)channel, atten);
+    }
+
+}
+
+esp_err_t example_rmt_init(uint8_t gpio_num, int led_number, uint8_t rmt_channel)
+{
+    ESP_LOGI(TAG, "Initializing WS2812");
+    rmt_config_t config = RMT_DEFAULT_CONFIG_TX(gpio_num, rmt_channel);
+
+    /*!< set counter clock to 40MHz */
+    config.clk_div = 2;
+
+    ESP_ERROR_CHECK(rmt_config(&config));
+    ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
+
+    led_strip_config_t strip_config = LED_STRIP_DEFAULT_CONFIG(led_number, (led_strip_dev_t)config.channel);
+    strip = led_strip_new_rmt_ws2812(&strip_config);
+
+    if (!strip) {
+        ESP_LOGE(TAG, "install WS2812 driver failed");
+        return ESP_FAIL;
+    }
+
+    /*!< Clear LED strip (turn off all LEDs) */
+    ESP_ERROR_CHECK(strip->clear(strip, 100));
+    /*!< Show simple rainbow chasing pattern */
+
+    return ESP_OK;
+}
+
+
+
 
 void app_main()
 {
@@ -317,23 +447,40 @@ init_spiff();
 
 //change gpio intrrupt type for one pin
     gpio_set_intr_type(GPIO_INPUT_IO_0, GPIO_INTR_ANYEDGE);
-
+    gpio_set_intr_type(GPIO_INPUT_IO_1, GPIO_INTR_ANYEDGE);
+    // gpio_set_intr_type(GPIO_INPUT_IO_2, GPIO_INTR_ANYEDGE);
+    // gpio_set_intr_type(GPIO_INPUT_IO_3, GPIO_INTR_ANYEDGE);
+        // adc1_config_width(ADC_WIDTH_BIT_13);
+        // adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
+        // adc1_config_channel_atten(ADC1_CHANNEL_1, ADC_ATTEN_DB_11);
+        printf("adc ready\n");
      //create a queue to handle gpio event from isr
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
     //start gpio task
     xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
-
+    printf("task created\n");
       //install gpio isr service
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     //hook isr handler for specific gpio pin
     gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
     //hook isr handler for specific gpio pin
     gpio_isr_handler_add(GPIO_INPUT_IO_1, gpio_isr_handler, (void*) GPIO_INPUT_IO_1);
+    // gpio_isr_handler_add(GPIO_INPUT_IO_2, gpio_isr_handler, (void*) GPIO_INPUT_IO_2);
+    // gpio_isr_handler_add(GPIO_INPUT_IO_3, gpio_isr_handler, (void*) GPIO_INPUT_IO_3);
 
     //remove isr handler for gpio number.
     gpio_isr_handler_remove(GPIO_INPUT_IO_0);
     //hook isr handler for specific gpio pin again
     gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
+
+
+    ESP_ERROR_CHECK(example_rmt_init(CONFIG_EXAMPLE_RMT_TX_GPIO, CONFIG_EXAMPLE_STRIP_LED_NUMBER, RMT_CHANNEL_0));
+
+    adc_queue = xQueueCreate(1, sizeof(double));
+    adc_init();
+    xTaskCreatePinnedToCore(&button_task, "button_task", 3 * 1024, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(&led_task, "led_task", 3 * 1024, NULL, 5, NULL, 0);
+
 
     /*< RGB display */
     //esp_color_display();
