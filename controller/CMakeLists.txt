@@ -6,6 +6,10 @@ set(EXTRA_COMPONENT_DIRS "../components/board"
                          "../components/lcd"
                          "../components/esp32-camera"
                          "../components/led_strip"
+                         "../components/audio"
+                         "../components/es8311"
+                         "../components/i2c_bus"
+                         "../components/helix"
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

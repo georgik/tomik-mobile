@@ -25,6 +25,8 @@
 #include "driver/adc.h"
 #include "driver/rmt.h"
 #include "led_strip.h"
+#include "i2c_bus.h"
+#include "audio.h"
 
 int previous_state = 0;
 int lock = 0;
@@ -73,7 +75,7 @@ void init_spiff() {
         esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
         .partition_label = NULL,
-        .max_files = 5,
+        .max_files = 20,
         .format_if_mount_failed = false
     };
 
@@ -84,6 +86,8 @@ void init_spiff() {
     ESP_ERROR_CHECK(esp_spiffs_info(NULL, &total, &used));
 
 }
+
+
 
 void esp_photo_display(void)
 {
@@ -104,6 +108,146 @@ void esp_photo_display(void)
     int read_bytes = 0;
 
     FILE *fd = fopen("/spiffs/image.jpg", "r");
+
+    read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
+    ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
+    fclose(fd);
+
+    jpg2rgb565(buf, read_bytes, rgb565, JPG_SCALE_NONE);
+    lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
+    lcd_write_data(rgb565, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
+    free(buf);
+    free(rgb565);
+    vTaskDelay(500 / portTICK_RATE_MS);
+    lock = 0;
+    // vTaskDelay(2000 / portTICK_RATE_MS);
+}
+
+
+void esp_pear_display(void)
+{
+    ESP_LOGI(TAG, "LCD photo test....");
+    if (lock == 1) {return;}
+    lock=1;
+    uint8_t *rgb565 = malloc(IMAGE_WIDTH * IMAGE_HIGHT * 2);
+    if (NULL == rgb565) {
+        ESP_LOGE(TAG, "can't alloc memory for rgb565 buffer");
+        return;
+    }
+    uint8_t *buf = malloc(IMAGE_MAX_SIZE);
+    if (NULL == buf) {
+        free(rgb565);
+        ESP_LOGE(TAG, "can't alloc memory for jpeg file buffer");
+        return;
+    }
+    int read_bytes = 0;
+
+    FILE *fd = fopen("/spiffs/pear.jpg", "r");
+
+    read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
+    ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
+    fclose(fd);
+
+    jpg2rgb565(buf, read_bytes, rgb565, JPG_SCALE_NONE);
+    lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
+    lcd_write_data(rgb565, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
+    free(buf);
+    free(rgb565);
+    vTaskDelay(500 / portTICK_RATE_MS);
+    lock = 0;
+    // vTaskDelay(2000 / portTICK_RATE_MS);
+}
+
+void esp_barbapapa_display(void)
+{
+    ESP_LOGI(TAG, "LCD photo test....");
+    if (lock == 1) {return;}
+    lock=1;
+    uint8_t *rgb565 = malloc(IMAGE_WIDTH * IMAGE_HIGHT * 2);
+    if (NULL == rgb565) {
+        ESP_LOGE(TAG, "can't alloc memory for rgb565 buffer");
+        return;
+    }
+    uint8_t *buf = malloc(IMAGE_MAX_SIZE);
+    if (NULL == buf) {
+        free(rgb565);
+        ESP_LOGE(TAG, "can't alloc memory for jpeg file buffer");
+        return;
+    }
+    int read_bytes = 0;
+
+    FILE *fd = fopen("/spiffs/barbapapa.jpg", "r");
+
+    read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
+    ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
+    fclose(fd);
+
+    jpg2rgb565(buf, read_bytes, rgb565, JPG_SCALE_NONE);
+    lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
+    lcd_write_data(rgb565, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
+    free(buf);
+    free(rgb565);
+    vTaskDelay(500 / portTICK_RATE_MS);
+    lock = 0;
+    // vTaskDelay(2000 / portTICK_RATE_MS);
+}
+
+
+void esp_power_display(void)
+{
+    ESP_LOGI(TAG, "LCD photo test....");
+    if (lock == 1) {return;}
+    lock=1;
+    uint8_t *rgb565 = malloc(IMAGE_WIDTH * IMAGE_HIGHT * 2);
+    if (NULL == rgb565) {
+        ESP_LOGE(TAG, "can't alloc memory for rgb565 buffer");
+        return;
+    }
+    uint8_t *buf = malloc(IMAGE_MAX_SIZE);
+    if (NULL == buf) {
+        free(rgb565);
+        ESP_LOGE(TAG, "can't alloc memory for jpeg file buffer");
+        return;
+    }
+    int read_bytes = 0;
+
+    FILE *fd = fopen("/spiffs/power.jpg", "r");
+
+    read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
+    ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
+    fclose(fd);
+
+    jpg2rgb565(buf, read_bytes, rgb565, JPG_SCALE_NONE);
+    lcd_set_index(0, 0, IMAGE_WIDTH - 1, IMAGE_HIGHT - 1);
+    lcd_write_data(rgb565, IMAGE_WIDTH * IMAGE_HIGHT * sizeof(uint16_t));
+    free(buf);
+    free(rgb565);
+    vTaskDelay(500 / portTICK_RATE_MS);
+    lock = 0;
+    // vTaskDelay(2000 / portTICK_RATE_MS);
+}
+
+
+
+void esp_pink_display(void)
+{
+    ESP_LOGI(TAG, "LCD photo test....");
+    if (lock == 1) {return;}
+    lock=1;
+    uint8_t *rgb565 = malloc(IMAGE_WIDTH * IMAGE_HIGHT * 2);
+    if (NULL == rgb565) {
+        ESP_LOGE(TAG, "can't alloc memory for rgb565 buffer");
+        return;
+    }
+    uint8_t *buf = malloc(IMAGE_MAX_SIZE);
+    if (NULL == buf) {
+        free(rgb565);
+        ESP_LOGE(TAG, "can't alloc memory for jpeg file buffer");
+        return;
+    }
+    int read_bytes = 0;
+
+    FILE *fd = fopen("/spiffs/pink.jpg", "r");
 
     read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
     ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
@@ -332,12 +476,14 @@ void led_task(void *arg)
             ESP_LOGI(TAG, "rec(K1) -> red");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, 0, 0));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
-            esp_color_display(color565(255,0,0));
+            esp_barbapapa_display();
+            // esp_color_display(color565(255,0,0));
         } else if (voltage > 1.98 - DEVIATION && voltage <= 1.98 + DEVIATION) {
+            esp_pear_display();
             ESP_LOGI(TAG, "mode(K2) -> green");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, 0, LED_MAX_VALUE, 0));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
-            esp_color_display(color565(0,255,0));
+            // esp_color_display(color565(0,255,0));
         } else if (voltage > 1.65 - DEVIATION && voltage <= 1.65 + DEVIATION) {
             ESP_LOGI(TAG, "play(K3) -> blue");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, 0, 0, LED_MAX_VALUE));
@@ -347,17 +493,20 @@ void led_task(void *arg)
             ESP_LOGI(TAG, "set(K4) -> yellow");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, LED_MAX_VALUE, 0));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
-            esp_color_display(color565(255,255,0));
+            esp_power_display();
+            // esp_color_display(color565(255,255,0));
         } else if (voltage > 0.82 - DEVIATION && voltage <= 0.82 + DEVIATION) {
             ESP_LOGI(TAG, "vol(K5) -> purple");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, 0, LED_MAX_VALUE));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
-            esp_color_display(color565(255,0,255));
+            esp_pink_display();
+            // esp_color_display(color565(255,0,255));
         } else if (voltage > 0.38 - DEVIATION && voltage <= 0.38 + DEVIATION) {
             ESP_LOGI(TAG, "vol+(K6) -> write");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, LED_MAX_VALUE, LED_MAX_VALUE));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
             esp_color_display(color565(255,255,255));
+            aplay_mp3("/spiffs/music.mp3");
         }
 
     }
@@ -478,6 +627,10 @@ init_spiff();
 
     adc_queue = xQueueCreate(1, sizeof(double));
     adc_init();
+
+    ESP_ERROR_CHECK(i2c_bus_init());
+    audio_init_simple();
+
     xTaskCreatePinnedToCore(&button_task, "button_task", 3 * 1024, NULL, 5, NULL, 0);
     xTaskCreatePinnedToCore(&led_task, "led_task", 3 * 1024, NULL, 5, NULL, 0);
 
