@@ -28,6 +28,17 @@
 #include "i2c_bus.h"
 #include "audio.h"
 
+#include "esp_vfs_fat.h"
+#include "sdmmc_cmd.h"
+
+#define MOUNT_POINT "/sdcard"
+
+#define PIN_NUM_MISO 8
+#define PIN_NUM_MOSI 9
+#define PIN_NUM_CLK  15
+#define PIN_NUM_CS   40
+#define SPI_DMA_CHAN    host.slot
+
 int previous_state = 0;
 int lock = 0;
 
@@ -142,7 +153,7 @@ void esp_pear_display(void)
     }
     int read_bytes = 0;
 
-    FILE *fd = fopen("/spiffs/pear.jpg", "r");
+    FILE *fd = fopen("/sdcard/img/1.jpg", "r");
 
     read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
     ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
@@ -176,7 +187,7 @@ void esp_barbapapa_display(void)
     }
     int read_bytes = 0;
 
-    FILE *fd = fopen("/spiffs/barbapapa.jpg", "r");
+    FILE *fd = fopen("/sdcard/img/2.jpg", "r");
 
     read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
     ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
@@ -211,7 +222,7 @@ void esp_power_display(void)
     }
     int read_bytes = 0;
 
-    FILE *fd = fopen("/spiffs/power.jpg", "r");
+    FILE *fd = fopen("/sdcard/img/3.jpg", "r");
 
     read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
     ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
@@ -247,7 +258,7 @@ void esp_pink_display(void)
     }
     int read_bytes = 0;
 
-    FILE *fd = fopen("/spiffs/pink.jpg", "r");
+    FILE *fd = fopen("/sdcard/img/4.jpg", "r");
 
     read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
     ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
@@ -293,7 +304,7 @@ void esp_photo_display2(void)
     }
     int read_bytes = 0;
 
-    FILE *fd = fopen("/spiffs/smiley.jpg", "r");
+    FILE *fd = fopen("/sdcard/img/5.jpg", "r");
 
     read_bytes = fread(buf, 1, IMAGE_MAX_SIZE, fd);
     ESP_LOGI(TAG, "spiffs:read_bytes:%d  fd: %p", read_bytes, fd);
@@ -494,19 +505,21 @@ void led_task(void *arg)
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, LED_MAX_VALUE, 0));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
             esp_power_display();
+            aplay_mp3("/sdcard/Audio/3.mp3");
             // esp_color_display(color565(255,255,0));
         } else if (voltage > 0.82 - DEVIATION && voltage <= 0.82 + DEVIATION) {
             ESP_LOGI(TAG, "vol(K5) -> purple");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, 0, LED_MAX_VALUE));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
             esp_pink_display();
+            aplay_mp3("/sdcard/Audio/2.mp3");
             // esp_color_display(color565(255,0,255));
         } else if (voltage > 0.38 - DEVIATION && voltage <= 0.38 + DEVIATION) {
             ESP_LOGI(TAG, "vol+(K6) -> write");
             ESP_ERROR_CHECK(strip->set_pixel(strip, 0, LED_MAX_VALUE, LED_MAX_VALUE, LED_MAX_VALUE));
             ESP_ERROR_CHECK(strip->refresh(strip, 0));
             esp_color_display(color565(255,255,255));
-            aplay_mp3("/spiffs/music.mp3");
+            aplay_mp3("/sdcard/Audio/1.mp3");
         }
 
     }
@@ -580,6 +593,7 @@ init_spiff();
     /*< Show a picture */
     esp_photo_display();
 
+/* Single button controller 
     gpio_config_t io_conf;
     //disable interrupt
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
@@ -593,7 +607,8 @@ init_spiff();
     io_conf.pull_up_en = 0;
     //configure GPIO with the given settings
     gpio_config(&io_conf);
-
+    */
+/*
 //change gpio intrrupt type for one pin
     gpio_set_intr_type(GPIO_INPUT_IO_0, GPIO_INTR_ANYEDGE);
     gpio_set_intr_type(GPIO_INPUT_IO_1, GPIO_INTR_ANYEDGE);
@@ -621,7 +636,7 @@ init_spiff();
     gpio_isr_handler_remove(GPIO_INPUT_IO_0);
     //hook isr handler for specific gpio pin again
     gpio_isr_handler_add(GPIO_INPUT_IO_0, gpio_isr_handler, (void*) GPIO_INPUT_IO_0);
-
+*/
 
     ESP_ERROR_CHECK(example_rmt_init(CONFIG_EXAMPLE_RMT_TX_GPIO, CONFIG_EXAMPLE_STRIP_LED_NUMBER, RMT_CHANNEL_0));
 
@@ -634,6 +649,56 @@ init_spiff();
     xTaskCreatePinnedToCore(&button_task, "button_task", 3 * 1024, NULL, 5, NULL, 0);
     xTaskCreatePinnedToCore(&led_task, "led_task", 3 * 1024, NULL, 5, NULL, 0);
 
+esp_err_t ret;
+   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+#ifdef CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED
+        .format_if_mount_failed = true,
+#else
+        .format_if_mount_failed = false,
+#endif // EXAMPLE_FORMAT_IF_MOUNT_FAILED
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+    sdmmc_card_t *card;
+    const char mount_point[] = MOUNT_POINT;
+    ESP_LOGI(TAG, "Initializing SD card");
+       ESP_LOGI(TAG, "Using SPI peripheral");
+
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = PIN_NUM_MOSI,
+        .miso_io_num = PIN_NUM_MISO,
+        .sclk_io_num = PIN_NUM_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4000,
+    };
+    ret = spi_bus_initialize(host.slot, &bus_cfg, SPI_DMA_CHAN);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize bus.");
+        return;
+    }
+
+   sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+    slot_config.gpio_cs = PIN_NUM_CS;
+    slot_config.host_id = host.slot;
+
+    ESP_LOGI(TAG, "Mounting filesystem");
+    ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
+
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount filesystem. "
+                     "If you want the card to be formatted, set the EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+                     "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
+        }
+        return;
+    }
+    ESP_LOGI(TAG, "Filesystem mounted");
+
+     sdmmc_card_print_info(stdout, card);    
 
     /*< RGB display */
     //esp_color_display();
