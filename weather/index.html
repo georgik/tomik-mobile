@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div id="firstScreen">
+            <div id="sun" class="sun"></div>
+            <div id="frog" class="frog">
+            </div>
+            <div id="frog2" class="frog2">
+            </div>
+            <div id="cloud" class="cloud">
+            </div>
+        </div>
+        <!-- New second screen -->
+        <div id="secondScreen" class="secondScreen" style="display: none;">
+            <!-- Inside the secondScreen div -->
+            <div id="temperature" class="temperature-display">Temperature: 24°C</div>
+
+            <!-- Add this dialog HTML below or near the temperature display -->
+            <div id="tempDialog" class="temp-dialog" style="display:none;">
+                <input type="text" id="tempInput" value="24" /><span>°C</span>
+                <button onclick="updateTemperature()">Ok</button>
+            </div>
+
+            <p id="currentTime"></p>
+            <div id="small-cloud" class="small-cloud"></div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

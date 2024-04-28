@@ -1,0 +1,161 @@
+body, html {
+    font-family: 'Roboto', sans-serif; /* Apply Roboto font throughout the document */
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: url('landscape.webp') no-repeat center center fixed;
+    background-size: cover;
+}
+
+.container {
+    width: 100%;
+    height: 100%;
+    position: relative; /* Add this line to establish a positioning context */
+}
+
+.frog {
+    width: 150px;
+    height: 150px;
+    position: absolute;
+    bottom: 4em;
+    right: 2em;
+    background: url('frog.webp') no-repeat center center;
+    background-size: contain;
+}
+
+.frog2 {
+    width: 150px;
+    height: 150px;
+    position: absolute;
+    bottom: 4em;
+    left: 2em;
+    background: url('frog2.webp') no-repeat center center;
+    background-size: contain;
+}
+
+@keyframes moveCloud {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(100px); /* Adjust the distance based on your preference */
+    }
+}
+
+.cloud {
+    width: 150px;
+    height: 150px;
+    position: absolute;
+    top: 2em;
+    left: 2em;
+    background: url('cloud.webp') no-repeat center center;
+    background-size: contain;
+    animation: moveCloud 8s ease-in-out infinite;
+    transition: filter 0.3s ease-in-out; /* Smooth transition for the filter */
+    cursor: pointer;
+}
+
+.cloud:hover {
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8)); /* White glow effect */
+}
+
+
+.secondScreen {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f0f8ff;
+    font-size: 1.25em;
+}
+
+#temperature {
+    font-size: 2em;
+    font-weight: 700;
+    margin: 20px 0;
+    cursor: pointer;
+}
+
+#currentTime {
+    font-size: 1.5em; /* Make time larger */
+    font-weight: 400;
+    margin: 10px 0;
+}
+
+.small-cloud {
+    width: 100px;
+    height: 100px;
+    background: url('small-cloud.webp') no-repeat center center;
+    background-size: contain;
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    cursor: pointer;
+}
+
+.small-cloud:hover {
+    filter: drop-shadow(0 0 10px rgba(116, 112, 213, 0.8)); /* White glow effect */
+}
+
+@keyframes rotateSunRays {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    50% {
+        transform: rotate(30deg); /* Rotate to 30 degrees at the halfway point */
+    }
+}
+
+.sun {
+    width: 150px;
+    height: 150px;
+    background: url('sun.webp') no-repeat center center;
+    background-size: contain;
+    position: absolute;
+    right: 220px;
+    top: 20px;
+    cursor: pointer;
+    animation: rotateSunRays 10s ease-in-out infinite;
+    transition: transform 0.3s ease-in-out, filter 0.3s ease-in-out; /* Smooth transitions for transform and filter */
+}
+
+.sun:hover {
+    transform: scale(1.1); /* Grow the element by 10% on hover */
+    filter: drop-shadow(0 0 20px rgba(255, 165, 0, 0.8)); /* Orange glow effect */
+}
+
+
+.temp-dialog {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 10px;
+    border: 1px solid #ccc;
+    background-color: white;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+}
+
+.temp-dialog input[type="text"] {
+    font-size: 1em;
+    padding: 5px;
+    margin-right: 5px;
+}
+
+.temp-dialog button {
+    padding: 5px 10px;
+    font-size: 1em;
+    cursor: pointer;
+}
