@@ -27,15 +27,17 @@ body, html {
     background-size: contain;
 }
 
-.frog2 {
-    width: 150px;
-    height: 150px;
+.animated-frog {
+    width: 64px; /* 16px * 4 */
+    height: 64px; /* 16px * 4 */
     position: absolute;
     bottom: 4em;
-    left: 2em;
-    background: url('frog2.webp') no-repeat center center;
-    background-size: contain;
+    right: 12em;
+    animation: frog-animation 0.8s steps(8) infinite;
 }
+
+
+
 
 @keyframes moveCloud {
     0%, 100% {
